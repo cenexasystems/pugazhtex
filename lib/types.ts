@@ -22,6 +22,7 @@ export type Product = {
   offer_discount_pct: number; // 0 = no automatic offer
   offer_price: number | null; // Price billed when an offer is active
   is_active: boolean; // Visible in the Billing Panel picker
+  image_url: string | null; // Downscaled data URL (data:image/...); null = no photo
   created_at: string;
 };
 

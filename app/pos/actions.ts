@@ -48,7 +48,7 @@ export async function fetchProducts(): Promise<Product[]> {
   return serialize(await dbStore.listProducts());
 }
 
-export async function createProduct(data: { name: string; description: string | null; category: string; gst_rate: number; hsn_code: string | null; selling_price: number; item_type?: ItemType; cost_price?: number; current_stock?: number | null; low_stock_alert?: number | null; offer_discount_pct?: number; offer_price?: number | null; is_active?: boolean }): Promise<Product> {
+export async function createProduct(data: { name: string; description: string | null; category: string; gst_rate: number; hsn_code: string | null; selling_price: number; item_type?: ItemType; cost_price?: number; current_stock?: number | null; low_stock_alert?: number | null; offer_discount_pct?: number; offer_price?: number | null; is_active?: boolean; image_url?: string | null }): Promise<Product> {
   return serialize(await dbStore.addProduct(data));
 }
 

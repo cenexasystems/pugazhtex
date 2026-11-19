@@ -204,6 +204,7 @@ export const dbStore = {
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS offer_discount_pct NUMERIC NOT NULL DEFAULT 0`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS offer_price NUMERIC`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT`;
       // The offer percentage is snapshotted per invoice line so the printed
       // invoice can show the discount that was actually applied.
       await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS offer_pct NUMERIC NOT NULL DEFAULT 0`;
@@ -240,6 +241,7 @@ export const dbStore = {
     offer_discount_pct?: number;
     offer_price?: number | null;
     is_active?: boolean;
+    image_url?: string | null;
   }): Promise<Product> {
     await this.ensureProductSchema();
     const id = uid();
@@ -249,7 +251,7 @@ export const dbStore = {
       INSERT INTO products (
         id, name, description, category, gst_rate, hsn_code, selling_price,
         item_type, cost_price, current_stock, low_stock_alert,
-        offer_discount_pct, offer_price, is_active
+        offer_discount_pct, offer_price, is_active, image_url
       )
       VALUES (
         ${id}, ${input.name}, ${input.description}, ${input.category},
@@ -258,7 +260,7 @@ export const dbStore = {
         ${isService ? null : input.current_stock ?? 0},
         ${isService ? null : input.low_stock_alert ?? 0},
         ${input.offer_discount_pct ?? 0}, ${input.offer_price ?? null},
-        ${input.is_active ?? true}
+        ${input.is_active ?? true}, ${input.image_url ?? null}
       )
       RETURNING *
     `;
@@ -281,6 +283,7 @@ export const dbStore = {
     if (patch.offer_discount_pct !== undefined) await sql`UPDATE products SET offer_discount_pct = ${patch.offer_discount_pct} WHERE id = ${id}`;
     if (patch.offer_price !== undefined) await sql`UPDATE products SET offer_price = ${patch.offer_price} WHERE id = ${id}`;
     if (patch.is_active !== undefined) await sql`UPDATE products SET is_active = ${patch.is_active} WHERE id = ${id}`;
+    if (patch.image_url !== undefined) await sql`UPDATE products SET image_url = ${patch.image_url} WHERE id = ${id}`;
 
     // Stock is meaningless for services — switching the type to SERVICE clears it.
     if (

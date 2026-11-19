@@ -167,7 +167,36 @@ type CatalogItem = {
   offerPct?: number;
   offerPrice?: number | null;
   isActive?: boolean;
+  imageUrl?: string | null;
 };
+
+/** Downscale + JPEG-encode a chosen photo so the stored data URL stays small. */
+const productImageToDataUrl = (file: File, maxEdge = 480): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read the selected file."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("That file is not a valid image."));
+      image.onload = () => {
+        const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Image processing is not supported here."));
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
 
 type OrderItem = {
   id: string;
@@ -682,6 +711,7 @@ export default function POSBilling() {
       offerPrice:
         p.offer_price === null || p.offer_price === undefined ? null : Number(p.offer_price),
       isActive: p.is_active === undefined ? true : Boolean(p.is_active),
+      imageUrl: p.image_url || null,
     };
   };
 
@@ -793,6 +823,7 @@ export default function POSBilling() {
   const [newCatOfferPct, setNewCatOfferPct] = useState<number | "">("");
   const [newCatOfferPrice, setNewCatOfferPrice] = useState<number | "">("");
   const [newCatActive, setNewCatActive] = useState(true);
+  const [newCatImage, setNewCatImage] = useState<string | null>(null);
 
   const [isSavingCatalog, setIsSavingCatalog] = useState<boolean>(false); // guards Save Product against double-clicks
   const [inventorySearch, setInventorySearch] = useState<string>("");
@@ -1024,6 +1055,7 @@ export default function POSBilling() {
     setNewCatOfferPct("");
     setNewCatOfferPrice("");
     setNewCatActive(true);
+    setNewCatImage(null);
   };
 
   const openEditCatalog = (catItem: CatalogItem, targetRowId?: string) => {
@@ -1041,6 +1073,7 @@ export default function POSBilling() {
     setNewCatOfferPct(catItem.offerPct ?? "");
     setNewCatOfferPrice(catItem.offerPrice ?? "");
     setNewCatActive(catItem.isActive === undefined ? true : catItem.isActive);
+    setNewCatImage(catItem.imageUrl || null);
 
     setCatalogTargetRowId(targetRowId || null);
     setShowCatalogModal(true);
@@ -1179,6 +1212,7 @@ export default function POSBilling() {
       offer_discount_pct: offerPct,
       offer_price: offerPrice,
       is_active: newCatActive,
+      image_url: newCatImage,
     };
 
     // Persist a newly-typed category so it appears in the managed list next time.
@@ -3335,6 +3369,55 @@ export default function POSBilling() {
 
               <div>
                 <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1.5">
+                  Photo (Optional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
+                    {newCatImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={newCatImage} alt="Product" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">No photo</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 cursor-pointer">
+                      {newCatImage ? "Change photo" : "Upload photo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          if (!file.type.startsWith("image/")) {
+                            alert("Please choose an image file (PNG or JPG).");
+                            return;
+                          }
+                          try {
+                            setNewCatImage(await productImageToDataUrl(file));
+                          } catch (err) {
+                            alert(err instanceof Error ? err.message : "Could not use that image.");
+                          }
+                        }}
+                      />
+                    </label>
+                    {newCatImage && (
+                      <button
+                        type="button"
+                        onClick={() => setNewCatImage(null)}
+                        className="text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-red-600 text-left cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1.5">
                   Description / Notes (Optional)
                 </label>
                 <input
@@ -4332,6 +4415,14 @@ export default function POSBilling() {
                                               key={catItem.id}
                                               className="w-full flex items-center border-b border-transparent last:border-0 hover:bg-[#FFFFFF] transition-colors"
                                             >
+                                              {catItem.imageUrl && (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                  src={catItem.imageUrl}
+                                                  alt=""
+                                                  className="ml-3 w-10 h-10 rounded-md object-cover border border-black/10 shrink-0"
+                                                />
+                                              )}
                                               <button
                                                 className="flex-1 text-left px-4 py-2.5 flex flex-col cursor-pointer"
                                                 onClick={() => {
@@ -7706,6 +7797,14 @@ export default function POSBilling() {
                                       }`}
                                     />
                                   </button>
+                                  {p.imageUrl && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={p.imageUrl}
+                                      alt=""
+                                      className="w-10 h-10 rounded-md object-cover border border-black/10 shrink-0"
+                                    />
+                                  )}
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-bold text-[#000000] flex items-center gap-2 flex-wrap">
                                       <span>{p.name}</span>
@@ -8221,6 +8320,7 @@ export default function POSBilling() {
               id: c.id,
               name: c.name,
               description: c.desc ?? null,
+              image_url: c.imageUrl ?? null,
               category: c.category ?? "General",
               gst_rate: c.gstRate ?? 0,
               hsn_code: c.hsnCode ?? null,
